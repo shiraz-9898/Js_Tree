@@ -1,0 +1,167 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+
+<div>
+    
+    <h2 id="dynamicHeading"></h2>    
+    <div class="row mb-4 g-2">
+        <div class="col-md-3">
+            <label for="dropNode" class="form-label">Select Parent Node</label>
+            <select id="dropNode" class="form-control"></select>
+        </div>
+        <div class="col-md-3">
+            <label for="entNode" class="form-label">Enter Node Name</label>
+            <input type="text" id="entNode" class="form-control" />
+        </div>
+        <div class="col-md-2">           
+            <label for="addNode" class="form-label text-white">button</label>
+            <input type="submit" id="addNode" class="btn btn-primary form-control" value="Add Node" />
+        </div>
+        <div class="col-md-3 offset-1">
+            <label for="sea" class="form-label">Search</label>
+            <input id="sea" type="text" class="form-control" />
+        </div>
+    </div>
+    <div id="dynamic" class="border rounded-3"></div>
+
+    <script>
+        
+        $(document).ready(function () {
+            
+            $('#dynamicHeading').html("Dynamic Js Tree");
+
+            //initialize dropdown
+            dropData();
+            function dropData() {
+                $.ajax({
+                    url: "/Home/show",
+                    success: function (data) {
+                        data.sort(sortFunction);                           
+                        var nodeRows = `<option value="#">Make Root Node</option>`;
+                        data.forEach(function (row) {
+                            nodeRows += `<option value=${row.id}>${row.text}</option>`;
+                        })
+                        $("#dropNode").html(nodeRows);
+                    }
+                })
+            }
+
+            //enter node
+            $("#addNode").on("click", function () {
+                var newNode = $("#entNode").val();
+                var parentNode = $("#dropNode").val();
+                if (newNode != "") {
+                    var d = $('#dynamic').jstree().create_node(parentNode, newNode);
+                    if (!d) {
+                        alert("Node name must be unique!");
+                    }
+                    else {
+                        alert("Node added successfully!")
+                        location.reload();
+                    }
+                }
+                else {
+                    alert("Node name must be required!");
+                }
+            })
+
+            //search nodes
+            var to = false;
+            $('#sea').keyup(function () {
+                if (to) {
+                    clearTimeout(to);
+                }
+                to = setTimeout(function () {
+                    var v = $('#sea').val();
+                    $('#dynamic').jstree().search(v);
+                }, 250);
+            });
+
+            //initialize Js Tree
+            $('#dynamic').jstree({
+                "core": {
+                    'data': {
+                        'url': '/Home/show/',
+                    },
+                    "check_callback": true,
+                },
+                "plugins": [
+                    
+                    "contextmenu",
+                    "dnd",
+                    "search",
+                    "sort",
+                    "state",
+                    "unique",
+                    "wholerow",
+                ]
+            })
+                        
+            //create node
+            $('#dynamic').on("create_node.jstree", function (event, dataNodes) {
+                
+                $.ajax({
+                    url: "/Home/Add",
+                    type: "POST",
+                    data: dataNodes.node,
+                })
+            })
+            //delete node
+            $('#dynamic').on("delete_node.jstree", function (event, dataNodes) {               
+                var childs = dataNodes.node.children;
+                if (childs.length) {
+                    
+                    alert(`You cannot delete ${dataNodes.node.text} record before deleting their child records!`)
+                    $("#dynamic").jstree().refresh();
+                }
+                else {
+                    $.ajax({
+                        url: "/Home/Delete",
+                        type: "POST",
+                        data: dataNodes.node,
+                    })
+                }
+            })
+            //rename node
+            $('#dynamic').on("rename_node.jstree", function (event, dataNodes) {
+                $.ajax({
+                    url: "/Home/Update",
+                    type: "POST",
+                    data: dataNodes.node,
+                })
+            })
+            //move node
+            $('#dynamic').on("move_node.jstree", function (event, dataNodes) {
+                $.ajax({
+                    url: "/Home/Update",
+                    type: "POST",
+                    data: dataNodes.node,
+                })                
+            })
+            //copy node
+            $('#dynamic').on("copy_node.jstree", function (event, dataNodes) {
+
+                $.ajax({
+                    url: "/Home/Add",
+                    type: "POST",
+                    data: dataNodes.node,
+                })
+            })
+            
+            //sort data
+            function sortFunction(a, b) {
+                if (a.text === b.text) {
+                    return 0;
+                }
+                else {
+                    return (a.text < b.text) ? -1 : 1;
+                }
+            }
+           
+        })
+    </script>
+
+</div>
+
